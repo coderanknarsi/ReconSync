@@ -1,0 +1,281 @@
+{% extends "base.html" %}
+
+{% block title %}New Repair Order{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-lg-8">
+    <div class="card shadow-sm mb-4">
+      <div class="card-body">
+        <h1 class="h4 mb-3">New Repair Order</h1>
+        <h2 class="h5">Vehicle Details</h2>
+        <dl class="row mb-0">
+          <dt class="col-sm-3">Customer</dt>
+          <dd class="col-sm-9">{{ vehicle.customer }}</dd>
+          <dt class="col-sm-3">VIN</dt>
+          <dd class="col-sm-9">{{ vehicle.vin }}</dd>
+          <dt class="col-sm-3">Year</dt>
+          <dd class="col-sm-9">{{ vehicle.year }}</dd>
+          <dt class="col-sm-3">Make</dt>
+          <dd class="col-sm-9">{{ vehicle.make }}</dd>
+          <dt class="col-sm-3">Model</dt>
+          <dd class="col-sm-9">{{ vehicle.model }}</dd>
+        </dl>
+      </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <div>
+            <span class="text-muted">Ticket Number</span>
+            <div class="fs-4 fw-bold">{{ ticket_number }}</div>
+          </div>
+        </div>
+        <form>
+          <div class="mb-3">
+            <label for="work" class="form-label">Work to be Performed</label>
+            <textarea class="form-control" id="work" rows="3" placeholder="Describe the work to be performed"></textarea>
+          </div>
+          <div class="mb-3">
+            <label for="payerType" class="form-label">Payer Type</label>
+            <select class="form-select" id="payerType">
+              <option value="Customer" selected>Customer</option>
+              <option value="Internal">Internal</option>
+            </select>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+      <div class="card-body">
+        <div class="d-flex flex-wrap gap-2 mb-3">
+          <button type="button" class="btn btn-outline-primary" id="showPartForm">Add Part</button>
+          <button type="button" class="btn btn-outline-secondary" id="showLaborForm">Add Labor</button>
+        </div>
+
+        <div id="partForm" class="entry-form d-none">
+          <h3 class="h6">Add Part</h3>
+          <div class="row g-2 align-items-end">
+            <div class="col-md-6">
+              <label for="partDescription" class="form-label">Description</label>
+              <input type="text" id="partDescription" class="form-control" placeholder="Part description">
+            </div>
+            <div class="col-md-3">
+              <label for="partQuantity" class="form-label">Quantity</label>
+              <input type="number" min="1" step="1" id="partQuantity" class="form-control" value="1">
+            </div>
+            <div class="col-md-3">
+              <label for="partUnitCost" class="form-label">Unit Cost</label>
+              <input type="number" min="0" step="0.01" id="partUnitCost" class="form-control" value="0.00">
+            </div>
+            <div class="col-12 text-end">
+              <button type="button" class="btn btn-sm btn-primary" id="addPart">Add Part</button>
+              <button type="button" class="btn btn-sm btn-link text-decoration-none" data-hide="partForm">Cancel</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="laborForm" class="entry-form d-none">
+          <h3 class="h6">Add Labor</h3>
+          <div class="row g-2 align-items-end">
+            <div class="col-md-8">
+              <label for="laborDescription" class="form-label">Description</label>
+              <input type="text" id="laborDescription" class="form-control" placeholder="Labor description">
+            </div>
+            <div class="col-md-4">
+              <label for="laborCost" class="form-label">Cost</label>
+              <input type="number" min="0" step="0.01" id="laborCost" class="form-control" value="0.00">
+            </div>
+            <div class="col-12 text-end">
+              <button type="button" class="btn btn-sm btn-primary" id="addLabor">Add Labor</button>
+              <button type="button" class="btn btn-sm btn-link text-decoration-none" data-hide="laborForm">Cancel</button>
+            </div>
+          </div>
+        </div>
+
+        <h3 class="h6 mt-4">Line Items</h3>
+        <ul class="list-group mb-3" id="lineItems">
+          <li class="list-group-item text-muted" id="emptyState">No line items added yet.</li>
+        </ul>
+
+        <div class="totals">
+          <div class="d-flex justify-content-between"><span>Subtotal</span><span id="subtotalDisplay">$0.00</span></div>
+          <div class="d-flex justify-content-between"><span>Tax (7%)</span><span id="taxDisplay">$0.00</span></div>
+          <div class="d-flex justify-content-between fw-bold"><span>Total</span><span id="totalDisplay">$0.00</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const TAX_RATE = 0.07;
+  const showPartFormBtn = document.getElementById('showPartForm');
+  const showLaborFormBtn = document.getElementById('showLaborForm');
+  const partForm = document.getElementById('partForm');
+  const laborForm = document.getElementById('laborForm');
+  const addPartBtn = document.getElementById('addPart');
+  const addLaborBtn = document.getElementById('addLabor');
+  const lineItemsList = document.getElementById('lineItems');
+  const emptyState = document.getElementById('emptyState');
+
+  const subtotalDisplay = document.getElementById('subtotalDisplay');
+  const taxDisplay = document.getElementById('taxDisplay');
+  const totalDisplay = document.getElementById('totalDisplay');
+
+  const lineItems = [];
+
+  function toggleForm(form) {
+    if (!form) return;
+    form.classList.remove('d-none');
+    form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  function hideForm(form) {
+    if (!form) return;
+    form.classList.add('d-none');
+  }
+
+  document.querySelectorAll('[data-hide]').forEach(button => {
+    button.addEventListener('click', (event) => {
+      const id = event.target.getAttribute('data-hide');
+      hideForm(document.getElementById(id));
+    });
+  });
+
+  showPartFormBtn.addEventListener('click', () => {
+    hideForm(laborForm);
+    toggleForm(partForm);
+  });
+
+  showLaborFormBtn.addEventListener('click', () => {
+    hideForm(partForm);
+    toggleForm(laborForm);
+  });
+
+  function formatCurrency(value) {
+    return `$${value.toFixed(2)}`;
+  }
+
+  function updateTotals() {
+    const subtotal = lineItems.reduce((sum, item) => sum + item.total, 0);
+    const tax = subtotal * TAX_RATE;
+    const total = subtotal + tax;
+
+    subtotalDisplay.textContent = formatCurrency(subtotal);
+    taxDisplay.textContent = formatCurrency(tax);
+    totalDisplay.textContent = formatCurrency(total);
+  }
+
+  function renderLineItems() {
+    lineItemsList.innerHTML = '';
+
+    if (lineItems.length === 0) {
+      lineItemsList.appendChild(emptyState);
+      emptyState.classList.remove('d-none');
+      return;
+    }
+
+    lineItems.forEach((item, index) => {
+      const li = document.createElement('li');
+      li.className = 'list-group-item d-flex justify-content-between align-items-start';
+
+      const body = document.createElement('div');
+      body.className = 'me-3';
+      const title = document.createElement('div');
+      title.className = 'fw-semibold';
+      title.textContent = `${item.type}: ${item.description}`;
+      const subtitle = document.createElement('div');
+      subtitle.className = 'text-muted small';
+      subtitle.textContent = item.details;
+      body.appendChild(title);
+      body.appendChild(subtitle);
+
+      const value = document.createElement('div');
+      value.className = 'text-end';
+      value.innerHTML = `<div>${formatCurrency(item.total)}</div>`;
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'btn btn-sm btn-outline-danger mt-2';
+      removeBtn.textContent = 'Remove';
+      removeBtn.addEventListener('click', () => {
+        lineItems.splice(index, 1);
+        renderLineItems();
+        updateTotals();
+      });
+
+      li.appendChild(body);
+      li.appendChild(value);
+      li.appendChild(removeBtn);
+
+      lineItemsList.appendChild(li);
+    });
+  }
+
+  function addPart() {
+    const descriptionInput = document.getElementById('partDescription');
+    const quantityInput = document.getElementById('partQuantity');
+    const unitCostInput = document.getElementById('partUnitCost');
+
+    const description = descriptionInput.value.trim();
+    const quantity = parseInt(quantityInput.value, 10);
+    const unitCost = parseFloat(unitCostInput.value);
+
+    if (!description || isNaN(quantity) || isNaN(unitCost)) {
+      alert('Please provide description, quantity, and unit cost for the part.');
+      return;
+    }
+
+    const total = quantity * unitCost;
+
+    lineItems.push({
+      type: 'Part',
+      description,
+      details: `${quantity} @ ${formatCurrency(unitCost)}`,
+      total,
+    });
+
+    descriptionInput.value = '';
+    quantityInput.value = '1';
+    unitCostInput.value = '0.00';
+
+    hideForm(partForm);
+    renderLineItems();
+    updateTotals();
+  }
+
+  function addLabor() {
+    const descriptionInput = document.getElementById('laborDescription');
+    const costInput = document.getElementById('laborCost');
+
+    const description = descriptionInput.value.trim();
+    const cost = parseFloat(costInput.value);
+
+    if (!description || isNaN(cost)) {
+      alert('Please provide description and cost for the labor.');
+      return;
+    }
+
+    lineItems.push({
+      type: 'Labor',
+      description,
+      details: 'Labor charge',
+      total: cost,
+    });
+
+    descriptionInput.value = '';
+    costInput.value = '0.00';
+
+    hideForm(laborForm);
+    renderLineItems();
+    updateTotals();
+  }
+
+  addPartBtn.addEventListener('click', addPart);
+  addLaborBtn.addEventListener('click', addLabor);
+</script>
+{% endblock %}
