@@ -1,0 +1,15 @@
+body {
+  background-color: #f5f6fa;
+}
+
+.entry-form {
+  border: 1px solid #dee2e6;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  background-color: #fdfdfe;
+}
+
+.totals {
+  border-top: 1px dashed #ced4da;
+  padding-top: 1rem;
+}
