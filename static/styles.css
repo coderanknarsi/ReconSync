@@ -13,3 +13,17 @@ body {
   border-top: 1px dashed #ced4da;
   padding-top: 1rem;
 }
+
+.table th {
+  border-top: none;
+  font-weight: 600;
+  color: #495057;
+}
+
+.badge {
+  font-size: 0.75em;
+}
+
+.btn-group-sm > .btn, .btn-sm {
+  font-size: 0.875rem;
+}

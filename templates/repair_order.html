@@ -12,6 +12,10 @@
         <dl class="row mb-0">
           <dt class="col-sm-3">Customer</dt>
           <dd class="col-sm-9">{{ vehicle.customer }}</dd>
+          <dt class="col-sm-3">Phone</dt>
+          <dd class="col-sm-9">{{ vehicle.phone }}</dd>
+          <dt class="col-sm-3">Email</dt>
+          <dd class="col-sm-9">{{ vehicle.email }}</dd>
           <dt class="col-sm-3">VIN</dt>
           <dd class="col-sm-9">{{ vehicle.vin }}</dd>
           <dt class="col-sm-3">Year</dt>
@@ -31,6 +35,10 @@
             <span class="text-muted">Ticket Number</span>
             <div class="fs-4 fw-bold">{{ ticket_number }}</div>
           </div>
+          <div class="text-end">
+            <span class="text-muted">Date</span>
+            <div class="fw-semibold" id="currentDate"></div>
+          </div>
         </div>
         <form>
           <div class="mb-3">
@@ -42,6 +50,8 @@
             <select class="form-select" id="payerType">
               <option value="Customer" selected>Customer</option>
               <option value="Internal">Internal</option>
+              <option value="Warranty">Warranty</option>
+              <option value="Insurance">Insurance</option>
             </select>
           </div>
         </form>
@@ -53,6 +63,7 @@
         <div class="d-flex flex-wrap gap-2 mb-3">
           <button type="button" class="btn btn-outline-primary" id="showPartForm">Add Part</button>
           <button type="button" class="btn btn-outline-secondary" id="showLaborForm">Add Labor</button>
+          <button type="button" class="btn btn-success ms-auto" id="saveOrder">Save Repair Order</button>
         </div>
 
         <div id="partForm" class="entry-form d-none">
@@ -120,6 +131,7 @@
   const laborForm = document.getElementById('laborForm');
   const addPartBtn = document.getElementById('addPart');
   const addLaborBtn = document.getElementById('addLabor');
+  const saveOrderBtn = document.getElementById('saveOrder');
   const lineItemsList = document.getElementById('lineItems');
   const emptyState = document.getElementById('emptyState');
 
@@ -129,6 +141,8 @@
 
   const lineItems = [];
 
+  // Set current date
+  document.getElementById('currentDate').textContent = new Date().toLocaleDateString();
   function toggleForm(form) {
     if (!form) return;
     form.classList.remove('d-none');
@@ -169,6 +183,8 @@
     subtotalDisplay.textContent = formatCurrency(subtotal);
     taxDisplay.textContent = formatCurrency(tax);
     totalDisplay.textContent = formatCurrency(total);
+
+    return { subtotal, tax, total };
   }
 
   function renderLineItems() {
@@ -237,6 +253,8 @@
       description,
       details: `${quantity} @ ${formatCurrency(unitCost)}`,
       total,
+      quantity,
+      unitCost,
     });
 
     descriptionInput.value = '';
@@ -275,7 +293,63 @@
     updateTotals();
   }
 
+  function saveRepairOrder() {
+    const workDescription = document.getElementById('work').value.trim();
+    const payerType = document.getElementById('payerType').value;
+    
+    if (!workDescription) {
+      alert('Please provide a description of the work to be performed.');
+      return;
+    }
+    
+    if (lineItems.length === 0) {
+      alert('Please add at least one line item (part or labor).');
+      return;
+    }
+    
+    const totals = updateTotals();
+    
+    const orderData = {
+      ticket_number: '{{ ticket_number }}',
+      vin: '{{ vehicle.vin }}',
+      customer: '{{ vehicle.customer }}',
+      work_description: workDescription,
+      payer_type: payerType,
+      line_items: lineItems,
+      subtotal: totals.subtotal,
+      tax: totals.tax,
+      total: totals.total
+    };
+    
+    saveOrderBtn.disabled = true;
+    saveOrderBtn.textContent = 'Saving...';
+    
+    fetch('/save-repair-order', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(orderData)
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        alert('Repair order saved successfully!');
+        window.location.href = '/repair-orders';
+      } else {
+        alert('Error saving repair order: ' + data.message);
+      }
+    })
+    .catch(error => {
+      alert('Error saving repair order: ' + error.message);
+    })
+    .finally(() => {
+      saveOrderBtn.disabled = false;
+      saveOrderBtn.textContent = 'Save Repair Order';
+    });
+  }
   addPartBtn.addEventListener('click', addPart);
   addLaborBtn.addEventListener('click', addLabor);
+  saveOrderBtn.addEventListener('click', saveRepairOrder);
 </script>
 {% endblock %}
